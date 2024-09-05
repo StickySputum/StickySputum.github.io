@@ -1,1 +1,1 @@
-# StickySputum.github.io
+StickySputum.github.io
