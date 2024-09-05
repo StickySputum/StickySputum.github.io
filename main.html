@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Календарь смен</title>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+        #calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            margin-top: 20px;
+        }
+        .day, .header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #ffffff;
+            width: 100px;
+            height: 100px;
+        }
+        .header {
+            background-color: #007ACC;
+        }
+        .night {
+            background-color: #007ACC;
+        }
+        .day-shift {
+            background-color: #CC8B00;
+        }
+        .day-off {
+            background-color: #A9A9A9;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Календарь смен</h1>
+    <label for="year">Год:</label>
+    <select id="year"></select>
+    <label for="month">Месяц:</label>
+    <select id="month"></select>
+    <button id="calculateButton">Показать расписание</button>
+
+    <div id="calendar"></div>
+
+    <script>
+        const shifts = ["Ночная 1", "Ночная 2", "Выходной 1", "Выходной 2", "Дневная 1", "Дневная 2", "Выходной 1", "Выходной 2"];
+        const calendarElement = document.getElementById('calendar');
+        const yearSelect = document.getElementById('year');
+        const monthSelect = document.getElementById('month');
+
+        // Заполняем выбор года и месяца
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
+        const currentMonth = currentDate.getMonth() + 1;
+
+        for (let year = 2024; year <= 2030; year++) {
+            const option = document.createElement('option');
+            option.value = year;
+            option.text = year;
+            yearSelect.add(option);
+        }
+        yearSelect.value = currentYear;
+
+        for (let month = 1; month <= 12; month++) {
+            const option = document.createElement('option');
+            option.value = month;
+            option.text = month;
+            monthSelect.add(option);
+        }
+        monthSelect.value = currentMonth;
+
+        function generateScheduleForMonth(targetYear, targetMonth) {
+            const firstDayOfWork = new Date(2024, 7, 13); // 2024-08-13
+            const firstTargetDate = new Date(targetYear, targetMonth - 1, 1);
+            const lastTargetDate = new Date(targetYear, targetMonth, 0); // последний день месяца
+
+            const deltaDaysStart = Math.floor((firstTargetDate - firstDayOfWork) / (1000 * 60 * 60 * 24));
+            const deltaDaysEnd = Math.floor((lastTargetDate - firstDayOfWork) / (1000 * 60 * 60 * 24));
+
+            const schedule = {};
+
+            for (let i = deltaDaysStart; i <= deltaDaysEnd; i++) {
+                const shift = shifts[i % shifts.length];
+                const currentDate = new Date(firstDayOfWork);
+                currentDate.setDate(currentDate.getDate() + i);
+                schedule[currentDate.toDateString()] = shift;
+            }
+            return schedule;
+        }
+
+        function showSchedule() {
+            const targetYear = parseInt(yearSelect.value);
+            const targetMonth = parseInt(monthSelect.value);
+            const schedule = generateScheduleForMonth(targetYear, targetMonth);
+
+            while (calendarElement.firstChild) {
+                calendarElement.removeChild(calendarElement.firstChild);
+            }
+
+            const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+            weekDays.forEach(day => {
+                const header = document.createElement('div');
+                header.className = 'header';
+                header.innerText = day;
+                calendarElement.appendChild(header);
+            });
+
+            const firstDay = new Date(targetYear, targetMonth - 1, 1);
+            const lastDay = new Date(targetYear, targetMonth, 0);
+            const daysInMonth = lastDay.getDate();
+            const startDayWeek = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+
+            for (let i = 0; i < startDayWeek; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'day';
+                calendarElement.appendChild(emptyCell);
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const currentDate = new Date(targetYear, targetMonth - 1, day);
+                const shift = schedule[currentDate.toDateString()] || "Нет смены";
+                const dayCell = document.createElement('div');
+                dayCell.className = 'day ' + (shift.includes("Ночная") ? "night" : shift.includes("Дневная") ? "day-shift" : "day-off");
+                dayCell.innerText = day;
+                calendarElement.appendChild(dayCell);
+            }
+        }
+
+        document.getElementById('calculateButton').addEventListener('click', showSchedule);
+
+    </script>
+</body>
+</html>
