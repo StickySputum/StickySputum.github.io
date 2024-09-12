@@ -10,13 +10,19 @@
             color: #ffffff;
             font-family: Arial, sans-serif;
         }
+        .wrapper {
+        display: flex;
+        width: fit-content;
+        margin: 0 auto;
+        }
+
         #calendar {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             gap: 5px;
             margin-top: 20px;
         }
-        .day, .header {
+        .night, .header, .day-shift, .day-off{
             display: flex;
             justify-content: center;
             align-items: center;
@@ -25,13 +31,13 @@
             height: 100px;
         }
         .header {
-            background-color: #007ACC;
+            background-color: #00249c;
         }
         .night {
             background-color: #007ACC;
         }
         .day-shift {
-            background-color: #CC8B00;
+            background-color: #dfc902;
         }
         .day-off {
             background-color: #A9A9A9;
@@ -46,9 +52,10 @@
     <label for="month">Месяц:</label>
     <select id="month"></select>
     <button id="calculateButton">Показать расписание</button>
-
+     
+    <div class="wrapper">
     <div id="calendar"></div>
-
+    </div>
     <script>
         const shifts = ["Ночная 1", "Ночная 2", "Выходной 1", "Выходной 2", "Дневная 1", "Дневная 2", "Выходной 1", "Выходной 2"];
         const calendarElement = document.getElementById('calendar');
