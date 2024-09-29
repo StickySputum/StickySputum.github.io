@@ -5,24 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Календарь смен</title>
     <style>
+        
+        #calendarTitle {
+            display: inline-block;
+            position: relative; /* Заголовок становится родителем для абсолютной кнопки */
+            font-size: 24px; /* Размер шрифта заголовка */
+        }
+        
+        #toggleSalaryButton {
+            position: absolute;
+            top: 30px; /* Настраиваем отступ сверху для точного попадания */
+            left: 185px; /* Настраиваем отступ слева для точного попадания над буквой "н" */
+            width: 10px;
+            height: 10px;
+            opacity: 0; /* Кнопка будет невидимой, но кликабельной */
+            cursor: pointer;
+        }
+        
+        
+        #controls {
+            display: flex;
+            justify-content: left; /* Центровка по горизонтали */
+            gap: 10px; /* Промежуток между элементами */
+            margin-bottom: 20px; /* Отступ снизу для элементов */
+        }
+        
+        #controls label, 
+        #controls select, 
+        #controls button {
+            margin: 0 5px;
+        }
+           
         body {
             background-color: #1e1e1e;
             color: #000000;
             font-family: Arial, sans-serif;
         }
         .wrapper {
-        display: flex;
-        width: fit-content;
-        margin: 0 auto;
+            display: flex;
+            justify-content: space-between; /* Разместить календарь и зарплату по сторонам */
         }
-
         #calendar {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             gap: 5px;
             margin-top: 20px;
+            width: fit-content;
         }
-        .night, .header, .day-shift, .day-off{
+        .night, .header, .day-shift, .day-off {
             display: flex;
             justify-content: center;
             align-items: center;
@@ -42,106 +72,245 @@
         .day-off {
             background-color: #A9A9A9;
         }
+        #salary {
+            margin-left: 20px; /* Отступ слева для блока зарплаты */
+        }
     </style>
 </head>
 <body>
 
-    <h1>Календарь смен</h1>
+<h1 id="calendarTitle">Календарь смен</h1>
+<button id="toggleSalaryButton">Показать/Скрыть зарплату</button>
+<div id="controls">
     <label for="year">Год:</label>
     <select id="year"></select>
+    
     <label for="month">Месяц:</label>
     <select id="month"></select>
+    
     <button id="calculateButton">Показать расписание</button>
-     
-    <div class="wrapper">
+</div>
+
+<div class="wrapper">
+    <!-- Блок для календаря -->
     <div id="calendar"></div>
+
+    <!-- Блок для зарплаты -->
+    <div id="salary">
+        <h2>Заработная плата</h2>
+        <label for="dailyWage">Заработок за один рабочий день (руб):</label>
+        <input type="number" id="dailyWageInput" value="106.7" step="0.1">
+        <button id="calculateSalaryButton">Рассчитать зарплату</button>
+        <p>Количество рабочих дней: <span id="workDays">0</span></p>
+        <p>Заработная плата: <span id="salaryAmount">0</span> руб.</p>
+        <button id="exportToJSONButton">Экспортировать в JSON</button>
     </div>
-    <script>
-        const shifts = ["Ночная 1", "Ночная 2", "Выходной 1", "Выходной 2", "Дневная 1", "Дневная 2", "Выходной 1", "Выходной 2"];
-        const calendarElement = document.getElementById('calendar');
-        const yearSelect = document.getElementById('year');
-        const monthSelect = document.getElementById('month');
+</div>
+<script>
+    const shifts = ["Ночная 1", "Ночная 2", "Выходной 1", "Выходной 2", "Дневная 1", "Дневная 2", "Выходной 1", "Выходной 2"];
+    const shiftDetails = {
+        "Ночная 1": { start: "19:45", end: "8:15" },
+        "Ночная 2": { start: "19:45", end: "8:15" },
+        "Дневная 1": { start: "7:45", end: "20:15" },
+        "Дневная 2": { start: "7:45", end: "20:15" },
+        "Выходной 1": { start: "", end: "" },
+        "Выходной 2": { start: "", end: "" }
+    };
+    const calendarElement = document.getElementById('calendar');
+    const yearSelect = document.getElementById('year');
+    const monthSelect = document.getElementById('month');
+    const workDaysElement = document.getElementById('workDays');
+    const salaryAmountElement = document.getElementById('salaryAmount');
+    const dailyWageInput = document.getElementById('dailyWageInput');
 
-        // Заполняем выбор года и месяца
-        const currentDate = new Date();
-        const currentYear = currentDate.getFullYear();
-        const currentMonth = currentDate.getMonth() + 1;
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1;
 
-        for (let year = 2024; year <= 2030; year++) {
-            const option = document.createElement('option');
-            option.value = year;
-            option.text = year;
-            yearSelect.add(option);
+    for (let year = 2024; year <= 2030; year++) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.text = year;
+        yearSelect.add(option);
+    }
+    yearSelect.value = currentYear;
+
+    for (let month = 1; month <= 12; month++) {
+        const option = document.createElement('option');
+        option.value = month;
+        option.text = month;
+        monthSelect.add(option);
+    }
+    monthSelect.value = currentMonth;
+
+    function generateScheduleForMonth(targetYear, targetMonth) {
+        const firstDayOfWork = new Date(2024, 7, 13); 
+        const firstTargetDate = new Date(targetYear, targetMonth - 1, 1);
+        const lastTargetDate = new Date(targetYear, targetMonth, 0);
+
+        const deltaDaysStart = Math.floor((firstTargetDate - firstDayOfWork) / (1000 * 60 * 60 * 24));
+        const deltaDaysEnd = Math.floor((lastTargetDate - firstDayOfWork) / (1000 * 60 * 60 * 24));
+
+        const schedule = {};
+
+        for (let i = deltaDaysStart; i <= deltaDaysEnd; i++) {
+            const shift = shifts[i % shifts.length];
+            const currentDate = new Date(firstDayOfWork);
+            currentDate.setDate(currentDate.getDate() + i);
+            schedule[currentDate.toDateString()] = shift;
         }
-        yearSelect.value = currentYear;
+        return schedule;
+    }
 
-        for (let month = 1; month <= 12; month++) {
-            const option = document.createElement('option');
-            option.value = month;
-            option.text = month;
-            monthSelect.add(option);
+    function toggleShift(dayCell) {
+        if (dayCell.classList.contains('day-off')) {
+            dayCell.classList.remove('day-off');
+            dayCell.classList.add('day-shift');
+        } else if (dayCell.classList.contains('day-shift')) {
+            dayCell.classList.remove('day-shift');
+            dayCell.classList.add('night');
+        } else if (dayCell.classList.contains('night')) {
+            dayCell.classList.remove('night');
+            dayCell.classList.add('day-off');
         }
-        monthSelect.value = currentMonth;
+    }
 
-        function generateScheduleForMonth(targetYear, targetMonth) {
-            const firstDayOfWork = new Date(2024, 7, 13); // 2024-08-13
-            const firstTargetDate = new Date(targetYear, targetMonth - 1, 1);
-            const lastTargetDate = new Date(targetYear, targetMonth, 0); // последний день месяца
+    function updateWorkDaysCount() {
+        let workDaysCount = 0;
+        const dayCells = calendarElement.querySelectorAll('.day-shift, .night');
+        workDaysCount = dayCells.length;
 
-            const deltaDaysStart = Math.floor((firstTargetDate - firstDayOfWork) / (1000 * 60 * 60 * 24));
-            const deltaDaysEnd = Math.floor((lastTargetDate - firstDayOfWork) / (1000 * 60 * 60 * 24));
+        workDaysElement.innerText = workDaysCount;
 
-            const schedule = {};
+        const dailyWage = parseFloat(dailyWageInput.value);
+        salaryAmountElement.innerText = (workDaysCount * dailyWage).toFixed(2);
+    }
 
-            for (let i = deltaDaysStart; i <= deltaDaysEnd; i++) {
-                const shift = shifts[i % shifts.length];
-                const currentDate = new Date(firstDayOfWork);
-                currentDate.setDate(currentDate.getDate() + i);
-                schedule[currentDate.toDateString()] = shift;
-            }
-            return schedule;
+    function showSchedule() {
+        const targetYear = parseInt(yearSelect.value);
+        const targetMonth = parseInt(monthSelect.value);
+        const schedule = generateScheduleForMonth(targetYear, targetMonth);
+
+        while (calendarElement.firstChild) {
+            calendarElement.removeChild(calendarElement.firstChild);
         }
 
-        function showSchedule() {
-            const targetYear = parseInt(yearSelect.value);
-            const targetMonth = parseInt(monthSelect.value);
-            const schedule = generateScheduleForMonth(targetYear, targetMonth);
+        const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+        weekDays.forEach(day => {
+            const header = document.createElement('div');
+            header.className = 'header';
+            header.innerText = day;
+            calendarElement.appendChild(header);
+        });
 
-            while (calendarElement.firstChild) {
-                calendarElement.removeChild(calendarElement.firstChild);
-            }
+        const firstDay = new Date(targetYear, targetMonth - 1, 1);
+        const lastDay = new Date(targetYear, targetMonth, 0);
+        const daysInMonth = lastDay.getDate();
+        const startDayWeek = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
 
-            const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-            weekDays.forEach(day => {
-                const header = document.createElement('div');
-                header.className = 'header';
-                header.innerText = day;
-                calendarElement.appendChild(header);
+        for (let i = 0; i < startDayWeek; i++) {
+            const emptyCell = document.createElement('div');
+            emptyCell.className = 'day';
+            calendarElement.appendChild(emptyCell);
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const currentDate = new Date(targetYear, targetMonth - 1, day);
+            const shift = schedule[currentDate.toDateString()] || "Нет смены";
+            const dayCell = document.createElement('div');
+            dayCell.className = 'day ' + (shift.includes("Ночная") ? "night" : shift.includes("Дневная") ? "day-shift" : "day-off");
+            dayCell.innerText = day;
+
+            dayCell.addEventListener('click', () => {
+                toggleShift(dayCell);
+                updateWorkDaysCount();
             });
 
-            const firstDay = new Date(targetYear, targetMonth - 1, 1);
-            const lastDay = new Date(targetYear, targetMonth, 0);
-            const daysInMonth = lastDay.getDate();
-            const startDayWeek = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+            calendarElement.appendChild(dayCell);
+        }
 
-            for (let i = 0; i < startDayWeek; i++) {
-                const emptyCell = document.createElement('div');
-                emptyCell.className = 'day';
-                calendarElement.appendChild(emptyCell);
-            }
+        calculateSalary(schedule, targetYear, targetMonth);
+    }
 
-            for (let day = 1; day <= daysInMonth; day++) {
-                const currentDate = new Date(targetYear, targetMonth - 1, day);
-                const shift = schedule[currentDate.toDateString()] || "Нет смены";
-                const dayCell = document.createElement('div');
-                dayCell.className = 'day ' + (shift.includes("Ночная") ? "night" : shift.includes("Дневная") ? "day-shift" : "day-off");
-                dayCell.innerText = day;
-                calendarElement.appendChild(dayCell);
+    function calculateSalary(schedule, targetYear, targetMonth) {
+        const firstDay = new Date(targetYear, targetMonth - 1, 1);
+        const lastDay = new Date(targetYear, targetMonth, 0);
+        const daysInMonth = lastDay.getDate();
+        let workDaysCount = 0;
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const currentDate = new Date(targetYear, targetMonth - 1, day);
+            const shift = schedule[currentDate.toDateString()];
+            if (shift && (shift.includes("Ночная") || shift.includes("Дневная"))) {
+                workDaysCount++;
             }
         }
 
-        document.getElementById('calculateButton').addEventListener('click', showSchedule);
+        const dailyWage = parseFloat(dailyWageInput.value);
+        workDaysElement.innerText = workDaysCount;
+        salaryAmountElement.innerText = (workDaysCount * dailyWage).toFixed(2);
+    }
 
-    </script>
+    document.getElementById('exportToJSONButton').addEventListener('click', exportToJSON);
+
+    function exportToJSON() {
+        const targetYear = parseInt(yearSelect.value);
+        const targetMonth = parseInt(monthSelect.value);
+        const dayCells = calendarElement.querySelectorAll('.day-shift, .night');
+
+        const data = {
+            year: targetYear,
+            month: targetMonth,
+            shifts: []
+        };
+
+        dayCells.forEach((dayCell) => {
+            const day = dayCell.innerText;
+            const shiftType = dayCell.classList.contains('night') ? "Ночная" : "Дневная";
+            const targetDate = new Date(targetYear, targetMonth - 1, parseInt(day));
+            const formattedDate = `${String(targetDate.getDate()).padStart(2, '0')}.${String(targetDate.getMonth() + 1).padStart(2, '0')}.${targetDate.getFullYear()}`;
+            const details = shiftType === "Ночная" ? shiftDetails["Ночная 1"] : shiftDetails["Дневная 1"];
+            data.shifts.push({
+                date: formattedDate,
+                shift: shiftType,
+                startTime: details.start,
+                endTime: details.end
+            });
+        });
+
+        const jsonString = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Расписание_${targetMonth}_${targetYear}.json`;
+        link.click();
+    }
+
+    const salarySection = document.getElementById('salary');
+    const toggleSalaryButton = document.getElementById('toggleSalaryButton');
+
+    toggleSalaryButton.addEventListener('click', () => {
+        if (salarySection.style.display === 'none') {
+            salarySection.style.display = 'block';
+        } else {
+            salarySection.style.display = 'none';
+        }
+    });
+
+    // Скроем меню зарплаты по умолчанию
+    salarySection.style.display = 'none';
+
+
+    showSchedule();
+
+    document.getElementById('calculateButton').addEventListener('click', showSchedule);
+    document.getElementById('calculateSalaryButton').addEventListener('click', () => {
+        const targetYear = parseInt(yearSelect.value);
+        const targetMonth = parseInt(monthSelect.value);
+        const schedule = generateScheduleForMonth(targetYear, targetMonth);
+        calculateSalary(schedule, targetYear, targetMonth);
+    });
+</script>
+
 </body>
 </html>
