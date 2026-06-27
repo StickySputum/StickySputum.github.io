@@ -1,4 +1,58 @@
-// ТУТ ВСТАВЬ СВОЙ URL ИЗ GOOGLE APPS SCRIPT
+document.addEventListener("DOMContentLoaded", () => {
+    // 1. СИСТЕМА РОЛЕЙ И АВТОРИЗАЦИИ
+    const PINS = {
+        "1111": { role: "worker", name: "Сменщик" },
+        "2222": { role: "owner", name: "Владелец" }
+    };
+
+    let currentUser = null;
+
+    function checkAuth() {
+        const savedPin = localStorage.getItem('userPin');
+        if (savedPin && PINS[savedPin]) {
+            currentUser = PINS[savedPin];
+            document.getElementById('roleDisplay').innerText = currentUser.name;
+        } else {
+            login();
+        }
+    }
+
+    function login() {
+        const pin = prompt("Введите PIN для входа:\n(Для теста: 1111 - Сменщик, 2222 - Владелец)");
+        if (pin && PINS[pin]) {
+            localStorage.setItem('userPin', pin);
+            currentUser = PINS[pin];
+            document.getElementById('roleDisplay').innerText = currentUser.name;
+        } else {
+            alert("Неверный PIN! Доступ закрыт.");
+            document.body.innerHTML = "<h2 style='text-align:center; margin-top:50px;'>Доступ закрыт. Обновите страницу.</h2>";
+        }
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+        localStorage.removeItem('userPin');
+        location.reload();
+    });
+
+    checkAuth(); // Проверяем логин при загрузке
+    if (!currentUser) return; // Если не вошли, стопаем скрипт
+
+    // 2. ИНИЦИАЛИЗАЦИЯ ИНТЕРФЕЙСА (Поиск кнопок и списков)
+    const calendarElement = document.getElementById('calendar');
+    const monthSelect = document.getElementById('month');
+    const yearSelect = document.getElementById('year');
+    const saveBtn = document.getElementById('saveScheduleBtn');
+
+    // Заполнение списков годов и месяцев
+    const currentDate = new Date();
+    const months = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+    months.forEach((m, i) => monthSelect.add(new Option(m, i + 1)));
+    for (let year = 2024; year <= 2030; year++) yearSelect.add(new Option(year, year));
+
+    monthSelect.value = currentDate.getMonth() + 1;
+    yearSelect.value = currentDate.getFullYear();
+
+    // 3. РАБОТА С GOOGLE СЕРВЕРОМ
     const API_URL = "https://script.google.com/macros/s/AKfycbzaMi5vkLegAVb5ADnjVe-MPskotuffv_q0gSIDZXpS_IYzEqdWP56GCWetK0x_VGls/exec";
     
     let database = {}; // Сюда будем грузить данные из таблицы
@@ -6,7 +60,6 @@
     // Функция загрузки данных с сервера
     async function fetchSchedule() {
         try {
-            // Показываем загрузку на кнопке
             saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Загрузка...';
             saveBtn.disabled = true;
 
@@ -15,7 +68,6 @@
             
             renderCalendar(); // Перерисовываем календарь с новыми данными
             
-            // Возвращаем кнопку в норму
             saveBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Обновить данные';
             saveBtn.disabled = false;
         } catch (error) {
@@ -29,7 +81,6 @@
         try {
             const response = await fetch(API_URL, {
                 method: "POST",
-                // Отправляем как текст, чтобы избежать ошибки CORS политик браузера
                 headers: { "Content-Type": "text/plain;charset=utf-8" },
                 body: JSON.stringify({
                     date: dateKey,
@@ -46,7 +97,7 @@
         }
     }
 
-    // Обновляем логику умного клика, чтобы она сразу отправляла данные
+    // 4. ЛОГИКА КЛИКОВ И ОТРИСОВКИ
     function handleSmartClick(cell, dateKey) {
         const isWorker = cell.classList.contains('shift-worker');
         const isOwner = cell.classList.contains('shift-owner');
@@ -57,7 +108,7 @@
         if (!isWorker && !isOwner) {
             cell.classList.add(myRoleClass);
             database[dateKey] = currentUser.role;
-            updateShiftOnServer(dateKey, 'set', currentUser.role); // Отправка на сервер
+            updateShiftOnServer(dateKey, 'set', currentUser.role); 
             return;
         }
 
@@ -65,7 +116,7 @@
         if (cell.classList.contains(myRoleClass)) {
             cell.classList.remove(myRoleClass);
             delete database[dateKey];
-            updateShiftOnServer(dateKey, 'remove', currentUser.role); // Удаление с сервера
+            updateShiftOnServer(dateKey, 'remove', currentUser.role);
             return;
         }
 
@@ -76,12 +127,11 @@
                 cell.classList.remove(partnerRoleClass);
                 cell.classList.add(myRoleClass);
                 database[dateKey] = currentUser.role;
-                updateShiftOnServer(dateKey, 'set', currentUser.role); // Перезапись на сервере
+                updateShiftOnServer(dateKey, 'set', currentUser.role);
             }
         }
     }
 
-    // Функция отрисовки (немного изменили, чтобы читала из database)
     function renderCalendar() {
         calendarElement.innerHTML = '';
         const targetYear = parseInt(yearSelect.value);
@@ -105,14 +155,12 @@
         }
 
         for (let day = 1; day <= daysInMonth; day++) {
-            // Форматируем дату точно так же, как она будет храниться
             const dateKey = `${targetYear}-${targetMonth}-${day}`;
             const dayCell = document.createElement('div');
             dayCell.className = 'day';
             dayCell.innerText = day;
             dayCell.dataset.date = dateKey;
 
-            // Берем данные из database, а не из mockDatabase
             if (database[dateKey] === 'worker') dayCell.classList.add('shift-worker');
             if (database[dateKey] === 'owner') dayCell.classList.add('shift-owner');
 
@@ -123,10 +171,8 @@
 
     monthSelect.addEventListener('change', renderCalendar);
     yearSelect.addEventListener('change', renderCalendar);
-
-    // Кнопка теперь служит для принудительного обновления данных с сервера,
-    // так как смены сохраняются автоматически при клике
     saveBtn.addEventListener('click', fetchSchedule);
 
-    // Запускаем загрузку данных при открытии страницы
+    // Запускаем загрузку при старте
     fetchSchedule();
+});
