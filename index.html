@@ -9,11 +9,15 @@
 </head>
 <body>
 
-<div class="app-container">
+<div id="loadingOverlay" class="loading-overlay">
+    <h2><i class="fa-solid fa-spinner fa-spin"></i> Подключение к базе...</h2>
+</div>
+
+<div class="app-container" style="display: none;" id="mainApp">
     <header>
         <h1><i class="fa-solid fa-calendar-days"></i> Календарь смен</h1>
         <div id="userProfile" class="user-profile">
-            <i class="fa-solid fa-user"></i> <span id="roleDisplay">Загрузка...</span>
+            <i class="fa-solid fa-user"></i> <span id="roleDisplay">...</span>
             <button id="logoutBtn" title="Сменить пользователя"><i class="fa-solid fa-right-from-bracket"></i></button>
         </div>
     </header>
@@ -30,8 +34,8 @@
     </div>
 
     <div class="legend panel">
-        <div class="legend-item"><div class="color-box worker-color"></div> Твоя смена</div>
-        <div class="legend-item"><div class="color-box owner-color"></div> Смена напарника</div>
+        <div class="legend-item"><div class="color-box my-color"></div> <span id="legend-my-name">...</span></div>
+        <div class="legend-item"><div class="color-box partner-color"></div> <span id="legend-partner-name">...</span></div>
         <div class="legend-item"><div class="color-box off-color"></div> Выходной</div>
     </div>
 
@@ -41,7 +45,7 @@
 
     <div class="actions">
         <button id="saveScheduleBtn" class="btn-primary">
-            <i class="fa-solid fa-floppy-disk"></i> Отправить расписание
+            <i class="fa-solid fa-cloud-arrow-down"></i> Обновить данные
         </button>
     </div>
 </div>

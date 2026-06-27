@@ -1,31 +1,54 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. СИСТЕМА РОЛЕЙ И АВТОРИЗАЦИИ
-    const PINS = {
-        "1111": { role: "worker", name: "Сменщик" },
-        "2222": { role: "owner", name: "Владелец" }
-    };
-
+    // ВСТАВЬ СВОЮ НОВУЮ ССЫЛКУ ИЗ ГУГЛА СЮДА!
+    const API_URL = "https://script.google.com/macros/s/AKfycbzaMi5vkLegAVb5ADnjVe-MPskotuffv_q0gSIDZXpS_IYzEqdWP56GCWetK0x_VGls/exec";
+    
+    let allUsers = {};
+    let database = {}; 
     let currentUser = null;
 
+    const mainApp = document.getElementById('mainApp');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const calendarElement = document.getElementById('calendar');
+    const monthSelect = document.getElementById('month');
+    const yearSelect = document.getElementById('year');
+    const saveBtn = document.getElementById('saveScheduleBtn');
+
+    // 1. ЗАГРУЗКА БАЗЫ
+    async function initApp() {
+        try {
+            const response = await fetch(API_URL);
+            const data = await response.json();
+            
+            allUsers = data.users;
+            database = data.schedule;
+
+            checkAuth();
+        } catch (error) {
+            console.error("Ошибка сети:", error);
+            loadingOverlay.innerHTML = "<h2>Ошибка подключения к базе. Проверьте интернет.</h2>";
+        }
+    }
+
+    // 2. АВТОРИЗАЦИЯ
     function checkAuth() {
         const savedPin = localStorage.getItem('userPin');
-        if (savedPin && PINS[savedPin]) {
-            currentUser = PINS[savedPin];
-            document.getElementById('roleDisplay').innerText = currentUser.name;
+        if (savedPin && allUsers[savedPin]) {
+            currentUser = { pin: savedPin, name: allUsers[savedPin].name };
+            startApp();
         } else {
             login();
         }
     }
 
     function login() {
-        const pin = prompt("Введите PIN для входа:\n(Для теста: 1111 - Сменщик, 2222 - Владелец)");
-        if (pin && PINS[pin]) {
+        const pin = prompt("Введите ваш PIN-код для входа:");
+        if (pin && allUsers[pin]) {
             localStorage.setItem('userPin', pin);
-            currentUser = PINS[pin];
-            document.getElementById('roleDisplay').innerText = currentUser.name;
+            currentUser = { pin: pin, name: allUsers[pin].name };
+            startApp();
         } else {
-            alert("Неверный PIN! Доступ закрыт.");
-            document.body.innerHTML = "<h2 style='text-align:center; margin-top:50px;'>Доступ закрыт. Обновите страницу.</h2>";
+            alert("Неверный PIN-код или пользователь не найден в таблице.");
+            loadingOverlay.innerHTML = `<h2>Доступ закрыт. <button onclick="location.reload()" style="padding:10px; margin-top:10px;">Попробовать снова</button></h2>`;
         }
     }
 
@@ -34,100 +57,73 @@ document.addEventListener("DOMContentLoaded", () => {
         location.reload();
     });
 
-    checkAuth(); // Проверяем логин при загрузке
-    if (!currentUser) return; // Если не вошли, стопаем скрипт
+    function startApp() {
+        loadingOverlay.style.display = 'none';
+        mainApp.style.display = 'block';
+        
+        document.getElementById('roleDisplay').innerText = currentUser.name;
+        
+        const partnerPin = Object.keys(allUsers).find(p => p !== currentUser.pin);
+        const partnerName = partnerPin ? allUsers[partnerPin].name : "Напарник";
+        
+        document.getElementById('legend-my-name').innerText = currentUser.name;
+        document.getElementById('legend-partner-name').innerText = partnerName;
 
-    // 2. ИНИЦИАЛИЗАЦИЯ ИНТЕРФЕЙСА (Поиск кнопок и списков)
-    const calendarElement = document.getElementById('calendar');
-    const monthSelect = document.getElementById('month');
-    const yearSelect = document.getElementById('year');
-    const saveBtn = document.getElementById('saveScheduleBtn');
-
-    // Заполнение списков годов и месяцев
-    const currentDate = new Date();
-    const months = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
-    months.forEach((m, i) => monthSelect.add(new Option(m, i + 1)));
-    for (let year = 2024; year <= 2030; year++) yearSelect.add(new Option(year, year));
-
-    monthSelect.value = currentDate.getMonth() + 1;
-    yearSelect.value = currentDate.getFullYear();
-
-    // 3. РАБОТА С GOOGLE СЕРВЕРОМ
-    const API_URL = "https://script.google.com/macros/s/AKfycbzaMi5vkLegAVb5ADnjVe-MPskotuffv_q0gSIDZXpS_IYzEqdWP56GCWetK0x_VGls/exec";
-    
-    let database = {}; // Сюда будем грузить данные из таблицы
-
-    // Функция загрузки данных с сервера
-    async function fetchSchedule() {
-        try {
-            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Загрузка...';
-            saveBtn.disabled = true;
-
-            const response = await fetch(API_URL);
-            database = await response.json();
-            
-            renderCalendar(); // Перерисовываем календарь с новыми данными
-            
-            saveBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Обновить данные';
-            saveBtn.disabled = false;
-        } catch (error) {
-            console.error("Ошибка загрузки:", error);
-            alert("Не удалось загрузить расписание. Проверьте интернет.");
-        }
+        initCalendarControls();
+        renderCalendar();
     }
 
-    // Функция отправки одного изменения на сервер
-    async function updateShiftOnServer(dateKey, action, role) {
+    // 3. ОТРИСОВКА И ЛОГИКА
+    function initCalendarControls() {
+        const currentDate = new Date();
+        const months = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+        months.forEach((m, i) => monthSelect.add(new Option(m, i + 1)));
+        for (let year = 2024; year <= 2030; year++) yearSelect.add(new Option(year, year));
+
+        monthSelect.value = currentDate.getMonth() + 1;
+        yearSelect.value = currentDate.getFullYear();
+    }
+
+    async function updateShiftOnServer(dateKey, action, name) {
         try {
-            const response = await fetch(API_URL, {
+            await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "text/plain;charset=utf-8" },
                 body: JSON.stringify({
                     date: dateKey,
                     action: action,
-                    role: role
+                    name: name
                 })
             });
-            const result = await response.json();
-            if (result.status !== "success") {
-                console.error("Ошибка сохранения на сервере");
-            }
         } catch (error) {
-            console.error("Ошибка сети при отправке:", error);
+            console.error("Ошибка отправки:", error);
         }
     }
 
-    // 4. ЛОГИКА КЛИКОВ И ОТРИСОВКИ
     function handleSmartClick(cell, dateKey) {
-        const isWorker = cell.classList.contains('shift-worker');
-        const isOwner = cell.classList.contains('shift-owner');
-        const myRoleClass = `shift-${currentUser.role}`;
-        const partnerRoleClass = currentUser.role === 'worker' ? 'shift-owner' : 'shift-worker';
+        const shiftName = database[dateKey];
+        const isMyShift = shiftName === currentUser.name;
+        const isPartnerShift = shiftName && shiftName !== currentUser.name;
 
-        // Ситуация 1: Пусто -> Ставим смену
-        if (!isWorker && !isOwner) {
-            cell.classList.add(myRoleClass);
-            database[dateKey] = currentUser.role;
-            updateShiftOnServer(dateKey, 'set', currentUser.role); 
+        if (!isMyShift && !isPartnerShift) {
+            cell.className = 'day shift-mine';
+            database[dateKey] = currentUser.name;
+            updateShiftOnServer(dateKey, 'set', currentUser.name);
             return;
         }
 
-        // Ситуация 2: Своя смена -> Убираем смену (выходной)
-        if (cell.classList.contains(myRoleClass)) {
-            cell.classList.remove(myRoleClass);
+        if (isMyShift) {
+            cell.className = 'day';
             delete database[dateKey];
-            updateShiftOnServer(dateKey, 'remove', currentUser.role);
+            updateShiftOnServer(dateKey, 'remove', currentUser.name);
             return;
         }
 
-        // Ситуация 3: Чужая смена -> Всплывашка!
-        if (cell.classList.contains(partnerRoleClass)) {
-            const confirmChange = confirm("Внимание! В этот день уже стоит смена напарника.\nВы уверены, что хотите убрать её?");
-            if (confirmChange) {
-                cell.classList.remove(partnerRoleClass);
-                cell.classList.add(myRoleClass);
-                database[dateKey] = currentUser.role;
-                updateShiftOnServer(dateKey, 'set', currentUser.role);
+        if (isPartnerShift) {
+            if (confirm(`В этот день работает ${shiftName}. Вы уверены, что хотите убрать эту смену?`)) {
+                cell.className = 'day shift-mine';
+                database[dateKey] = currentUser.name;
+                updateShiftOnServer(dateKey, 'set', currentUser.name);
             }
         }
     }
@@ -150,8 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
         let startDayWeek = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
 
         for (let i = 0; i < startDayWeek; i++) {
-            const emptyCell = document.createElement('div');
-            calendarElement.appendChild(emptyCell);
+            calendarElement.appendChild(document.createElement('div'));
         }
 
         for (let day = 1; day <= daysInMonth; day++) {
@@ -159,10 +154,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const dayCell = document.createElement('div');
             dayCell.className = 'day';
             dayCell.innerText = day;
-            dayCell.dataset.date = dateKey;
-
-            if (database[dateKey] === 'worker') dayCell.classList.add('shift-worker');
-            if (database[dateKey] === 'owner') dayCell.classList.add('shift-owner');
+            
+            const shiftName = database[dateKey];
+            if (shiftName === currentUser.name) {
+                dayCell.classList.add('shift-mine');
+            } else if (shiftName && shiftName !== currentUser.name) {
+                dayCell.classList.add('shift-partner');
+            }
 
             dayCell.addEventListener('click', () => handleSmartClick(dayCell, dateKey));
             calendarElement.appendChild(dayCell);
@@ -171,8 +169,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     monthSelect.addEventListener('change', renderCalendar);
     yearSelect.addEventListener('change', renderCalendar);
-    saveBtn.addEventListener('click', fetchSchedule);
+    
+    saveBtn.addEventListener('click', async () => {
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Загрузка...';
+        const response = await fetch(API_URL);
+        const data = await response.json();
+        database = data.schedule;
+        renderCalendar();
+        saveBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Обновить данные';
+    });
 
-    // Запускаем загрузку при старте
-    fetchSchedule();
+    initApp();
 });
