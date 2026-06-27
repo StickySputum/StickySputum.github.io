@@ -117,3 +117,67 @@ select {
     border-radius: 8px; font-size: 16px; cursor: pointer; transition: all 0.3s ease;
 }
 .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 122, 204, 0.5); }
+
+/* =========================================
+   АДАПТИВНОСТЬ ДЛЯ ТЕЛЕФОНОВ (ширина до 600px)
+   ========================================= */
+@media (max-width: 600px) {
+    body {
+        padding: 10px; /* Уменьшаем отступы по краям экрана */
+    }
+
+    header {
+        flex-direction: column; /* Шапка и профиль друг под другом */
+        gap: 15px;
+    }
+
+    .controls {
+        flex-direction: column; /* Месяц и год друг под другом */
+        gap: 15px;
+    }
+
+    .control-group {
+        width: 100%;
+        justify-content: space-between; /* Раскидываем текст и селект по краям */
+    }
+
+    select {
+        flex-grow: 1; /* Растягиваем выпадающий список */
+        margin-left: 15px;
+    }
+
+    .legend {
+        flex-wrap: wrap; /* Если легенда не влезает, переносим на новую строку */
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .legend-item {
+        font-size: 12px;
+    }
+
+    .calendar-grid {
+        gap: 4px; /* Уменьшаем расстояние между днями */
+    }
+
+    .day {
+        height: 50px; /* Делаем квадраты дней более плоскими */
+        font-size: 14px; /* Чуть уменьшаем шрифт цифр */
+        border-radius: 8px;
+    }
+
+    .header-day {
+        height: 30px;
+        font-size: 12px;
+    }
+
+    .actions {
+        margin-top: 15px;
+        margin-bottom: 20px;
+    }
+
+    .btn-primary {
+        width: 100%; /* Кнопка на всю ширину экрана */
+        padding: 15px 24px; /* Делаем кнопку чуть выше для пальца */
+    }
+}
