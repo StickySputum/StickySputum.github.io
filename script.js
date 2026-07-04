@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
     // ВСТАВЬ СВОЮ НОВУЮ ССЫЛКУ ИЗ ГУГЛА СЮДА!
-    const API_URL = "https://script.google.com/macros/s/AKfycbzaMi5vkLegAVb5ADnjVe-MPskotuffv_q0gSIDZXpS_IYzEqdWP56GCWetK0x_VGls/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbwGWK_Dq6JQbEkG8veL5FW8aN51act3i4rwMSeIncB9cI6refwDoU7gU6OgIu3yMes/exec";
     
     let allUsers = {};
     let database = {}; 
